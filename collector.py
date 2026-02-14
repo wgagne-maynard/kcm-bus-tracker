@@ -185,9 +185,20 @@ def run_collector():
         logger.error("DATABASE_URL environment variable not set")
         raise SystemExit(1)
     
-    logger.info("Connecting to database...")
-    conn = psycopg2.connect(DATABASE_URL)
-    
+    # Wait for database to be ready (handles Railway cold starts and recoveries)
+    conn = None
+    for attempt in range(1, 31):
+        try:
+            logger.info(f"Connecting to database (attempt {attempt}/30)...")
+            conn = psycopg2.connect(DATABASE_URL)
+            break
+        except psycopg2.OperationalError as e:
+            logger.warning(f"Database not ready: {e}")
+            time.sleep(10)
+    if conn is None:
+        logger.error("Could not connect to database after 30 attempts")
+        raise SystemExit(1)
+
     logger.info("Initializing database schema...")
     init_database(conn)
     
