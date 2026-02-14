@@ -67,22 +67,25 @@ def init_database(conn) -> None:
             ON bus_positions (recorded_at DESC);
         """)
         
+        conn.commit()
+
         # Try to enable TimescaleDB hypertable (will fail gracefully if not available)
         try:
             cur.execute("""
-                SELECT create_hypertable('bus_positions', 'recorded_at', 
+                SELECT create_hypertable('bus_positions', 'recorded_at',
                     if_not_exists => TRUE,
                     migrate_data => TRUE
                 );
             """)
+            conn.commit()
             logger.info("TimescaleDB hypertable enabled")
         except psycopg2.Error as e:
+            conn.rollback()
             if "hypertable" in str(e).lower() or "timescaledb" in str(e).lower():
                 logger.info("TimescaleDB not available, using regular PostgreSQL table")
             else:
-                # Re-raise if it's a different error
                 raise
-        
+
         # Enable compression if TimescaleDB is available
         try:
             cur.execute("""
@@ -94,11 +97,10 @@ def init_database(conn) -> None:
             cur.execute("""
                 SELECT add_compression_policy('bus_positions', INTERVAL '7 days', if_not_exists => TRUE);
             """)
+            conn.commit()
             logger.info("TimescaleDB compression policy enabled")
         except psycopg2.Error:
-            pass  # TimescaleDB not available, skip compression
-        
-        conn.commit()
+            conn.rollback()  # TimescaleDB not available, skip compression
         logger.info("Database initialized successfully")
 
 
