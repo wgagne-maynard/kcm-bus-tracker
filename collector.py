@@ -214,6 +214,7 @@ def run_collector():
                 except:
                     pass
                 conn = psycopg2.connect(DATABASE_URL)
+                init_database(conn)
                 consecutive_failures = 0
             
             # Sleep for the remaining time to maintain 30s interval
@@ -229,7 +230,8 @@ def run_collector():
                 pass
             time.sleep(5)
             conn = psycopg2.connect(DATABASE_URL)
-            
+            init_database(conn)
+
         except KeyboardInterrupt:
             logger.info("Shutting down...")
             conn.close()
